@@ -1,0 +1,54 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://localhost:3100/loki/api/v1/push
+
+scrape_configs:
+- job_name: journal
+  journal:
+    max_age: 12h
+    labels:
+      job: systemd-journal
+  relabel_configs:
+    - source_labels: ['__journal_systemd_unit'] 
+      target_label: 'unit'
+- job_name: system
+  static_configs:
+  - targets:
+      - localhost
+    labels:
+      job: varlogs
+      __path__: /var/log/*log
+    
+- job_name: undertow-logs
+  pipeline_stages:
+    - match:
+        selector: '{job="undertow-logs"}'
+        stages:
+          - regex:
+              expression: '^(?P<raw>(?P<ts>^\S+)\s(?P<rest>(?s:.*)))$'
+          - drop:
+              expression: ".*DEBUG.*"
+          # - timestamp:
+          #     source: ts
+          #     format: RFC3339
+          - template:
+              source: raw
+              template: "{{ .rest }}"
+          - output:
+              source: raw
+  static_configs:
+    - targets:
+        - UNDERTOW
+      labels:
+        serviceName: detect-forward-ip
+        env: UAT
+        hostname: UNDERTOW
+        job: undertow-logs
+        __path__: /Volumes/Data/workspace/minikube/grafana-helm/promtail/logs/logs-2022-04-20.log
+  
