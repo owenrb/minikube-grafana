@@ -1,0 +1,3 @@
+config:
+  limits_config:
+    per_stream_rate_limit: 10MB
